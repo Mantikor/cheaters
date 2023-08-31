@@ -1,0 +1,150 @@
+python.exe -m memory_profiler main.py > memory_profiling.txt
+
+Input date for filtering items, format YYYY-MM-DD: 2021-03-08
+Filename: main.py
+
+Line #    Mem usage    Increment  Occurrences   Line Contents
+=============================================================
+   127     20.8 MiB     20.8 MiB           1   @profile
+   128                                         def task_add_table(db, table_name: str):
+   129     20.8 MiB      0.0 MiB           1       cursor = db.cursor()
+   130     20.8 MiB      0.0 MiB           1       query = f'''CREATE TABLE {table_name} (timestamp INTEGER, player_id INTEGER, event_id INTEGER,
+   131                                                                                    error_id TEXT, json_server TEXT, json_client TEXT)'''
+   132     20.9 MiB      0.0 MiB           1       cursor.execute(query)
+   133     20.9 MiB      0.0 MiB           1       db.commit()
+   134     20.9 MiB      0.0 MiB           1       cursor.close()
+
+
+Filename: main.py
+
+Line #    Mem usage    Increment  Occurrences   Line Contents
+=============================================================
+    82     20.9 MiB     20.9 MiB           1   @profile
+    83                                         def copy_cheaters(src_db, dst_db, d_filter: str):
+    84     20.9 MiB      0.0 MiB           1       cursor_src = src_db.cursor()
+    85     20.9 MiB      0.0 MiB           1       cursor_dst = dst_db.cursor()
+    86     20.9 MiB      0.0 MiB           1       query = 'SELECT * FROM cheaters'
+    87     21.0 MiB      0.1 MiB           1       cursor_src.execute(query)
+    88     23.2 MiB      2.3 MiB           1       cheaters_rows = cursor_src.fetchall()
+    89     23.2 MiB      0.0 MiB           1       cheaters_rows_filtered = list()
+    90
+    91     23.4 MiB      0.2 MiB           1       dt_date_filter = datetime.strptime(d_filter, '%Y-%m-%d')
+    92     23.4 MiB      0.0 MiB           1       ts_date_filter = datetime.timestamp(dt_date_filter)
+    93
+    94     23.4 MiB      0.0 MiB       16578       for row in cheaters_rows:
+    95     23.4 MiB      0.0 MiB       16577           dt_date_time = datetime.strptime(str(row[1]), '%Y-%m-%d %H:%M:%S')
+    96     23.4 MiB      0.0 MiB       16577           ts = datetime.timestamp(dt_date_time)
+    97     23.4 MiB      0.0 MiB       16577           if int(ts) >= int(ts_date_filter) and (int(ts)-int(ts_date_filter) <= DIFF):
+    98     23.4 MiB      0.0 MiB          95               cheaters_rows_filtered.append((row[0], str(int(ts))))
+    99     23.4 MiB      0.0 MiB           1       insert_records = 'INSERT INTO cheaters (player_id, ban_time) VALUES(?, ?)'
+   100     23.4 MiB      0.0 MiB           1       cursor_dst.executemany(insert_records, cheaters_rows_filtered)
+   101     23.4 MiB      0.0 MiB           1       dst_db.commit()
+   102     23.4 MiB      0.0 MiB           1       cursor_src.close()
+   103     23.4 MiB      0.0 MiB           1       cursor_dst.close()
+
+
+Filename: main.py
+
+Line #    Mem usage    Increment  Occurrences   Line Contents
+=============================================================
+    35     22.7 MiB     22.7 MiB           1   @profile
+    36                                         def load_csv_to_db(db, table: str, filename: str, d_filter: str, delimiter: str = ',', skip_head: bool = True,
+    37                                                            batch_size: int = 5000):
+    38     22.7 MiB      0.0 MiB           1       batch = batch_size
+    39     26.1 MiB      0.0 MiB           2       with open(filename, 'r', encoding='utf-8') as csv_file:
+    40     22.7 MiB      0.0 MiB           1           try:
+    41     22.7 MiB      0.0 MiB           1               csv_lst = csv.reader(csv_file, delimiter=delimiter)
+    42     22.7 MiB      0.0 MiB           1               if skip_head:
+    43                                                         next(csv_lst)
+    44                                                         is_first = False
+    45                                                     else:
+    46     22.7 MiB      0.0 MiB           1                   is_first = True
+    47     22.7 MiB      0.0 MiB           1               cursor = db.cursor()
+    48     22.7 MiB      0.0 MiB           1               dt_date_filter = datetime.strptime(d_filter, '%Y-%m-%d')
+    49     26.1 MiB      1.2 MiB       66681               for row in csv_lst:
+    50     26.1 MiB      0.0 MiB       66680                   if is_first:
+    51     22.7 MiB      0.0 MiB           1                       row_names = list(row)
+    52     22.7 MiB      0.0 MiB           1                       logging.debug(row_names)
+    53     22.7 MiB      0.0 MiB           1                       is_first = False
+    54                                                         else:
+    55     26.1 MiB      0.0 MiB       66679                       item = list(row)
+    56     26.1 MiB      0.0 MiB       66679                       dt_object = datetime.fromtimestamp(int(item[0]))
+    57     26.1 MiB      2.0 MiB       66679                       logging.debug(f'Item: {item}')
+    58     26.1 MiB      0.0 MiB       66679                       if dt_object.date() == dt_date_filter.date():
+    59     26.1 MiB      0.3 MiB         439                           store_to_db(table=table, cursor=cursor, fields=row_names, item=item)
+    60     26.1 MiB      0.0 MiB         439                           batch -= 1
+    61     26.1 MiB      0.0 MiB         439                           if batch == 0:
+    62                                                                     db.commit()
+    63                                                                     batch = batch_size
+    64     26.1 MiB      0.0 MiB           1               db.commit()
+    65     26.1 MiB      0.0 MiB           1               cursor.close()
+    66                                                 except Exception as e:
+    67                                                     logging.error(f'{e}')
+
+
+Filename: main.py
+
+Line #    Mem usage    Increment  Occurrences   Line Contents
+=============================================================
+    35     26.1 MiB     26.1 MiB           1   @profile
+    36                                         def load_csv_to_db(db, table: str, filename: str, d_filter: str, delimiter: str = ',', skip_head: bool = True,
+    37                                                            batch_size: int = 5000):
+    38     26.1 MiB      0.0 MiB           1       batch = batch_size
+    39     27.9 MiB      0.0 MiB           2       with open(filename, 'r', encoding='utf-8') as csv_file:
+    40     26.1 MiB      0.0 MiB           1           try:
+    41     26.1 MiB      0.0 MiB           1               csv_lst = csv.reader(csv_file, delimiter=delimiter)
+    42     26.1 MiB      0.0 MiB           1               if skip_head:
+    43                                                         next(csv_lst)
+    44                                                         is_first = False
+    45                                                     else:
+    46     26.1 MiB      0.0 MiB           1                   is_first = True
+    47     26.1 MiB      0.0 MiB           1               cursor = db.cursor()
+    48     26.1 MiB      0.0 MiB           1               dt_date_filter = datetime.strptime(d_filter, '%Y-%m-%d')
+    49     27.9 MiB      0.7 MiB       66677               for row in csv_lst:
+    50     27.9 MiB      0.0 MiB       66676                   if is_first:
+    51     26.1 MiB      0.0 MiB           1                       row_names = list(row)
+    52     26.1 MiB      0.0 MiB           1                       logging.debug(row_names)
+    53     26.1 MiB      0.0 MiB           1                       is_first = False
+    54                                                         else:
+    55     27.9 MiB      0.0 MiB       66675                       item = list(row)
+    56     27.9 MiB      0.0 MiB       66675                       dt_object = datetime.fromtimestamp(int(item[0]))
+    57     27.9 MiB      1.0 MiB       66675                       logging.debug(f'Item: {item}')
+    58     27.9 MiB      0.0 MiB       66675                       if dt_object.date() == dt_date_filter.date():
+    59     27.9 MiB      0.0 MiB         452                           store_to_db(table=table, cursor=cursor, fields=row_names, item=item)
+    60     27.9 MiB      0.0 MiB         452                           batch -= 1
+    61     27.9 MiB      0.0 MiB         452                           if batch == 0:
+    62                                                                     db.commit()
+    63                                                                     batch = batch_size
+    64     27.9 MiB      0.0 MiB           1               db.commit()
+    65     27.9 MiB      0.0 MiB           1               cursor.close()
+    66                                                 except Exception as e:
+    67                                                     logging.error(f'{e}')
+
+
+Filename: main.py
+
+Line #    Mem usage    Increment  Occurrences   Line Contents
+=============================================================
+   106     27.9 MiB     27.9 MiB           1   @profile
+   107                                         def main_task(src_db, dst_db):
+   108     27.9 MiB      0.0 MiB           1       cursor_src = src_db.cursor()
+   109     27.9 MiB      0.0 MiB           1       cursor_dst = dst_db.cursor()
+   110     27.9 MiB      0.0 MiB           1       query = '''SELECT server.event_id, client.player_id,
+   111                                                               server.timestamp, server.error_id,
+   112                                                               server.description json_server,
+   113                                                               client.description json_client
+   114                                                         FROM client, server
+   115                                                         WHERE server.error_id = client.error_id ORDER BY player_id
+   116                                                         AND client.player_id NOT IN (SELECT cheaters.player_id FROM cheaters)'''
+   117     31.6 MiB      3.7 MiB           1       cursor_src.execute(query)
+   118     29.8 MiB     -1.8 MiB           1       task_rows = cursor_src.fetchall()
+   119     29.8 MiB      0.0 MiB           1       insert_records = '''INSERT INTO results (event_id, player_id, timestamp, error_id, json_server, json_client)
+   120                                                                 VALUES(?, ?, ?, ?, ?, ?)'''
+   121     29.7 MiB     -0.1 MiB           1       cursor_dst.executemany(insert_records, task_rows)
+   122     29.7 MiB      0.0 MiB           1       dst_db.commit()
+   123     29.7 MiB      0.0 MiB           1       cursor_src.close()
+   124     29.7 MiB      0.0 MiB           1       cursor_dst.close()
+
+
+
+Process finished with exit code 0
