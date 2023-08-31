@@ -15,6 +15,7 @@ from sqlite3 import Error
 from datetime import datetime
 from memory_profiler import profile
 
+# 24 hours * 60 minutes * 60 seconds (one day difference)
 DIFF = 24 * 60 * 60
 RESULT_TABLE_NAME = 'results'
 
@@ -149,8 +150,10 @@ if __name__ == '__main__':
     db_mem = prepare(tables=['client', 'server', 'cheaters'])
     db_cheaters = prepare(db='cheaters.db', tables=['results'])
 
+    # task 1
     task_add_table(db=db_cheaters, table_name=RESULT_TABLE_NAME)
 
+    # prepare data for task 2
     cursor = db_mem.cursor()
     query = 'CREATE TABLE IF NOT EXISTS client (timestamp INTEGER, error_id TEXT, player_id INTEGER, description TEXT)'
     cursor.execute(query)
@@ -165,7 +168,9 @@ if __name__ == '__main__':
     load_csv_to_db(db=db_mem, table='client', filename='client.csv', d_filter=date_filter, skip_head=False)
     load_csv_to_db(db=db_mem, table='server', filename='server.csv', d_filter=date_filter, skip_head=False)
 
+    # task 2
     main_task(src_db=db_mem, dst_db=db_cheaters)
 
+    # task 3 - see memory_profiling.txt file
     db_mem.close()
     db_cheaters.close()
