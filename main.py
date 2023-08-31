@@ -146,7 +146,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s - %(message)s',
                         handlers=[logging.StreamHandler()])
 
-    db_mem = prepare(db='testdb.db', tables=['client', 'server', 'cheaters'])
+    db_mem = prepare(tables=['client', 'server', 'cheaters'])
     db_cheaters = prepare(db='cheaters.db', tables=['results'])
 
     task_add_table(db=db_cheaters, table_name=RESULT_TABLE_NAME)
